@@ -115,10 +115,10 @@ Evalúa en JSON con estos campos:
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}]
     )
-    try:
-        return json.loads(response.choices[0].message.content)
-    except json.JSONDecodeError:
-        return {"error": "No se pudo parsear la evaluación del juez"}
+
+    response_text = response.choices[0].message.content
+    print("Diagnosis Response Text:", response_text)
+    return safe_json_load(response_text)
 
 # ------------------------
 # RAG Context Retrieval (Opcional)

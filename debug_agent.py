@@ -28,4 +28,4 @@ if __name__ == "__main__":
             "suggested_fix": r["diagnosis"].get("suggested_fix"),
         }
         print("Diagnosis Payload:", json.dumps(diagnosis_payload, indent=2))
-        send_diagnosis_to_cursor(diagnosis_payload)
+        # send_diagnosis_to_cursor(diagnosis_payload)
