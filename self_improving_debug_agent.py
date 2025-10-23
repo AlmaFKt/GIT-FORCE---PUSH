@@ -1,10 +1,19 @@
 import os, json, pickle
+from dotenv import load_dotenv
+# Cargar variables desde .env (si existe) para que OPENAI_API_KEY pueda leerse desde el archivo .env
+load_dotenv()
 from openai import OpenAI
 import numpy as np
 import faiss
 import re
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+# Leer la clave de OpenAI desde la variable de entorno (cargada desde .env por load_dotenv)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY or OPENAI_API_KEY.startswith("your_"):
+    raise RuntimeError(
+        "OPENAI_API_KEY no encontrada en .env o está sin configurar. "
+        "Añade OPENAI_API_KEY=sk-... en el archivo .env o exporta la variable de entorno antes de ejecutar."
+    )
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 FEW_SHOTS_FILE = "few_shots.json"
