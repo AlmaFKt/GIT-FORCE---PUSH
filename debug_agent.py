@@ -1,9 +1,6 @@
 import json
 import websocket
 from self_improving_debug_agent import self_improve
-from dotenv import load_dotenv
-# Cargar variables desde .env (si existe). Esto permite mantener la clave fuera del código.
-load_dotenv()
 
 MCP_SERVER_URL = "ws://localhost:8765"
 
@@ -22,13 +19,13 @@ if __name__ == "__main__":
     results = self_improve()
 
     for r in results:
+        # Extraemos archivos del contexto si existen, y líneas ejemplo
+        context_files = r["diagnosis"].get("context_files", [])
         diagnosis_payload = {
             "log": r["log"],
             "root_cause": r["diagnosis"].get("root_cause"),
-            "files": [
-                {"path": f, "lines": list(range(120, 125))}  # ejemplo
-                for f in r["diagnosis"].get("context_files", [])
-            ],
+            "files": [{"path": f, "lines": list(range(1, 6))} for f in context_files],
             "suggested_fix": r["diagnosis"].get("suggested_fix"),
         }
-        send_diagnosis_to_cursor(diagnosis_payload)
+        print("Diagnosis Payload:", json.dumps(diagnosis_payload, indent=2))
+        # send_diagnosis_to_cursor(diagnosis_payload)

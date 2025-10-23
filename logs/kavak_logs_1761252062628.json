@@ -1,0 +1,142 @@
+[
+  {
+    "timestamp": "2025-10-23T20:38:58.573Z",
+    "level": "INFO",
+    "service": "frontend-app",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "Application initialized successfully",
+    "metadata": {},
+    "raw": "[2025-10-23T20:38:58.573Z] INFO    [frontend-app] [user:USR005260] Application initialized successfully"
+  },
+  {
+    "timestamp": "2025-10-23T20:39:10.763Z",
+    "level": "ERROR",
+    "service": "inventory-service",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "IndexOutOfBoundsException: trying to access image[4] but only 2 images available",
+    "metadata": {},
+    "raw": "[2025-10-23T20:39:10.763Z] ERROR   [inventory-service] [user:USR005260] IndexOutOfBoundsException: trying to access image[4] but only 2 images available"
+  },
+  {
+    "timestamp": "2025-10-23T20:39:22.767Z",
+    "level": "ERROR",
+    "service": "pricing-engine",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "DivisionByZeroError in calculateDepreciation(): vehicle age is 0",
+    "metadata": {},
+    "raw": "[2025-10-23T20:39:22.767Z] ERROR   [pricing-engine] [user:USR005260] DivisionByZeroError in calculateDepreciation(): vehicle age is 0"
+  },
+  {
+    "timestamp": "2025-10-23T20:39:34.768Z",
+    "level": "ERROR",
+    "service": "pricing-engine",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "NullPointerException in calculateDiscount(): discount_rate is null for vehicle VEH005003",
+    "metadata": {},
+    "raw": "[2025-10-23T20:39:34.768Z] ERROR   [pricing-engine] [user:USR005260] NullPointerException in calculateDiscount(): discount_rate is null for vehicle VEH005003"
+  },
+  {
+    "timestamp": "2025-10-23T20:39:46.767Z",
+    "level": "ERROR",
+    "service": "pricing-engine",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "NullPointerException in calculateDiscount(): discount_rate is null for vehicle VEH005003",
+    "metadata": {},
+    "raw": "[2025-10-23T20:39:46.767Z] ERROR   [pricing-engine] [user:USR005260] NullPointerException in calculateDiscount(): discount_rate is null for vehicle VEH005003"
+  },
+  {
+    "timestamp": "2025-10-23T20:39:58.575Z",
+    "level": "WARNING",
+    "service": "cache-service",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "Memory leak detected: vehicle cache size 9.2GB (limit: 8GB)",
+    "metadata": {},
+    "raw": "[2025-10-23T20:39:58.575Z] WARNING [cache-service] [user:USR005260] Memory leak detected: vehicle cache size 9.2GB (limit: 8GB)"
+  },
+  {
+    "timestamp": "2025-10-23T20:39:59.948Z",
+    "level": "INFO",
+    "service": "frontend-app",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "Unknown action: admin toggle_panel",
+    "metadata": {},
+    "raw": "[2025-10-23T20:39:59.948Z] INFO    [frontend-app] [user:USR005260] Unknown action: admin toggle_panel"
+  },
+  {
+    "timestamp": "2025-10-23T20:40:03.340Z",
+    "level": "INFO",
+    "service": "frontend-app",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "Unknown action: admin toggle_panel",
+    "metadata": {},
+    "raw": "[2025-10-23T20:40:03.340Z] INFO    [frontend-app] [user:USR005260] Unknown action: admin toggle_panel"
+  },
+  {
+    "timestamp": "2025-10-23T20:40:10.763Z",
+    "level": "ERROR",
+    "service": "pricing-engine",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "DivisionByZeroError in calculateDepreciation(): vehicle age is 0",
+    "metadata": {},
+    "raw": "[2025-10-23T20:40:10.763Z] ERROR   [pricing-engine] [user:USR005260] DivisionByZeroError in calculateDepreciation(): vehicle age is 0"
+  },
+  {
+    "timestamp": "2025-10-23T20:40:22.762Z",
+    "level": "ERROR",
+    "service": "user-service",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "Session expired unexpectedly: user USR005260 session terminated after 45min (expected: 2h)",
+    "metadata": {},
+    "raw": "[2025-10-23T20:40:22.762Z] ERROR   [user-service] [user:USR005260] Session expired unexpectedly: user USR005260 session terminated after 45min (expected: 2h)"
+  },
+  {
+    "timestamp": "2025-10-23T20:40:34.764Z",
+    "level": "WARNING",
+    "service": "inventory-service",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "Duplicate vehicle ID detected: VEH005002 appears twice in inventory",
+    "metadata": {},
+    "raw": "[2025-10-23T20:40:34.764Z] WARNING [inventory-service] [user:USR005260] Duplicate vehicle ID detected: VEH005002 appears twice in inventory"
+  },
+  {
+    "timestamp": "2025-10-23T20:40:46.760Z",
+    "level": "ERROR",
+    "service": "search-service",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "ElasticsearchException: index 'vehicles' not found, falling back to SQL",
+    "metadata": {},
+    "raw": "[2025-10-23T20:40:46.760Z] ERROR   [search-service] [user:USR005260] ElasticsearchException: index 'vehicles' not found, falling back to SQL"
+  },
+  {
+    "timestamp": "2025-10-23T20:40:51.044Z",
+    "level": "INFO",
+    "service": "frontend-app",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "Unknown action: admin toggle_panel",
+    "metadata": {},
+    "raw": "[2025-10-23T20:40:51.044Z] INFO    [frontend-app] [user:USR005260] Unknown action: admin toggle_panel"
+  },
+  {
+    "timestamp": "2025-10-23T20:40:58.586Z",
+    "level": "WARNING",
+    "service": "inventory-service",
+    "userId": "USR005260",
+    "sessionId": "SESSION_1761251938569",
+    "message": "Duplicate vehicle ID detected: VEH005002 appears twice in inventory",
+    "metadata": {},
+    "raw": "[2025-10-23T20:40:58.586Z] WARNING [inventory-service] [user:USR005260] Duplicate vehicle ID detected: VEH005002 appears twice in inventory"
+  }
+]
