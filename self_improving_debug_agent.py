@@ -1,87 +1,97 @@
-import os, json, pickle
-from dotenv import load_dotenv
-# Cargar variables desde .env (si existe) para que OPENAI_API_KEY pueda leerse desde el archivo .env
-load_dotenv()
+import os
+import json
 from openai import OpenAI
-import numpy as np
-import faiss
-import re
 
-# Leer la clave de OpenAI desde la variable de entorno (cargada desde .env por load_dotenv)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY or OPENAI_API_KEY.startswith("your_"):
-    raise RuntimeError(
-        "OPENAI_API_KEY no encontrada en .env o está sin configurar. "
-        "Añade OPENAI_API_KEY=sk-... en el archivo .env o exporta la variable de entorno antes de ejecutar."
-    )
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Variables de entorno necesarias
+API_KEY = os.getenv("OPENAI_API_KEY")
+if not API_KEY:
+    raise ValueError("Debes establecer la variable de entorno OPENAI_API_KEY antes de ejecutar el script.")
 
+client = OpenAI(api_key=API_KEY)
+
+LOGS_FILE = "logs/kavak_logs_1761252062628.json"
 FEW_SHOTS_FILE = "few_shots.json"
-LOGS_FILE = "logs/kavak_logs_1761252062628.json"  # ahora JSON
-RAG_INDEX_FILE = "code_index.faiss"
-RAG_MAP_FILE = "code_map.pkl"
-EMBED_MODEL = "text-embedding-3-small"
 
+# -------------------------------
+# Utilidades
+# -------------------------------
 def safe_json_load(text):
+    """Intenta cargar JSON del texto devuelto por el modelo."""
     try:
-        # Busca la primera ocurrencia de {...} grande
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            return json.loads(match.group())
+        return json.loads(text)
     except json.JSONDecodeError:
-        pass
-    return {"error": "No se pudo parsear la respuesta del modelo"}
+        try:
+            cleaned = text[text.index("{"): text.rindex("}") + 1]
+            return json.loads(cleaned)
+        except Exception:
+            return {"error": "Invalid JSON", "raw": text}
 
-# ------------------------
-# Diagnosis Agent
-# ------------------------
-def diagnose_bug(log_entry, related_logs=None, few_shots=None):
+
+# -------------------------------
+# Diagnóstico agrupado de logs
+# -------------------------------
+def diagnose_logs_grouped(all_logs, few_shots=None):
     """
-    Diagnostica un log individual considerando logs relacionados para detectar patrones de error.
-    - log_entry: dict del log actual
-    - related_logs: lista de logs relacionados al mismo error (opcional)
-    - few_shots: ejemplos previos de diagnosis
+    Analiza un conjunto de logs y devuelve hasta 3 errores principales agrupados.
+    Cada error incluye los logs involucrados en ese problema.
     """
-    # Convertimos los logs a string
-    log_text = json.dumps(log_entry, indent=2)
-    related_text = ""
-    if related_logs:
-        related_text = "\n".join([json.dumps(l, indent=2) for l in related_logs])
+    logs_text = json.dumps(all_logs, indent=2)
 
     few_shot_text = ""
     if few_shots:
-        few_shot_text = "\n".join([
-            f"Ejemplo:\nLog: {json.dumps(ex['log'], indent=2)}\nDiagnóstico: {json.dumps(ex['diagnosis'], indent=2)}"
-            for ex in few_shots
-        ])
+        example_lines = []
+        for ex in few_shots:
+            logs_data = ex.get("logs") if isinstance(ex, dict) else None
+            if logs_data is None:
+                logs_data = ex.get("log") if isinstance(ex, dict) else None
+
+            try:
+                logs_json = json.dumps(logs_data, indent=2, ensure_ascii=False) if logs_data is not None else "<sin logs>"
+            except Exception:
+                logs_json = str(logs_data)
+
+            diag_json = json.dumps(ex.get("diagnosis", {}), indent=2, ensure_ascii=False) if isinstance(ex, dict) else str(ex)
+            example_lines.append(f"Ejemplo:\nLogs: {logs_json}\nDiagnóstico: {diag_json}\nFeedback Explanation: {ex.get('feedback_explanation', '<sin explanation>')}")
+
+        few_shot_text = "\n".join(example_lines)
 
     prompt = f"""
-Analiza los logs JSON proporcionados y genera un diagnóstico en **estrictamente JSON válido**.
-- Identifica si el log actual pertenece al mismo error que otros logs relacionados.
-- Agrupa los logs que correspondan al mismo problema.
-- Devuelve un solo objeto JSON con la siguiente estructura:
+Eres un experto en diagnóstico de sistemas distribuidos. Se te proporciona un conjunto de logs JSON.
+
+Tu tarea es:
+- Identificar **hasta 3 errores principales** distintos dentro de todos los logs.
+- Agrupar los logs relacionados a cada error (basado en servicio, mensaje o contexto).
+- Producir una salida **estrictamente JSON válida** con esta estructura:
 
 {{
-  "root_cause": "Descripción de la causa raíz del error",
-  "explanation": "Explicación técnica detallada del error",
-  "suggested_fix": "Recomendación de solución o fix",
-  "involved_logs": [<lista de logs JSON involucrados en este error>]
+  "errors": [
+    {{
+      "root_cause": "Descripción breve del problema principal",
+      "explanation": "Explicación técnica detallada del error (por qué ocurrió)",
+      "suggested_fix": "Recomendación de solución o mejora",
+      "involved_logs": [ <lista de logs JSON que corresponden a este error> ]
+    }}
+  ]
 }}
 
-- Devuelve **solo JSON**, sin explicaciones adicionales.
-- Usa los siguientes ejemplos como guía (few-shots):
+Reglas:
+- Devuelve máximo 3 elementos dentro de "errors".
+- Si no hay errores (nivel ERROR), devuelve: {{ "errors": [] }}
+- Devuelve **solo JSON válido**, sin texto adicional ni explicaciones fuera del JSON.
+- Usa los WARNING e INFO solo como contexto si ayudan a entender un error.
+- NO repitas el mismo log en más de un grupo.
 
-{few_shot_text}
+Ejemplos de formato (few-shots):
+{few_shot_text if few_shot_text else "Ninguno"}
 
-Log a analizar:
-{log_text}
-
-Logs relacionados:
-{related_text if related_text else "Ninguno"}
+Logs del sistema a analizar:
+{logs_text}
 """
+
     response = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2
     )
 
     response_text = response.choices[0].message.content
@@ -89,86 +99,98 @@ Logs relacionados:
     return safe_json_load(response_text)
 
 
-# ------------------------
-# LLM-as-a-Judge Agent
-# ------------------------
-def judge_response(log_entry, diagnosis):
-    log_text = json.dumps(log_entry, indent=2)
+# -------------------------------
+# Evaluación (LLM-as-a-Judge)
+# -------------------------------
+def judge_response(logs, diagnosis):
+    """
+    El juez LLM evalúa si el diagnóstico fue útil, preciso y completo.
+    Devuelve una puntuación entre 1 y 10, más una explicación general.
+    """
+    logs_text = json.dumps(logs, indent=2)
+    diagnosis_text = json.dumps(diagnosis, indent=2)
+
     prompt = f"""
-Eres un evaluador técnico experto.
-Dada la siguiente respuesta técnica:
+Eres un juez experto en debugging. Evalúa el siguiente diagnóstico generado por un agente AI.
 
-Log:
-{log_text}
+### Logs
+{logs_text}
 
-Diagnóstico:
-{diagnosis}
+### Diagnóstico del agente
+{diagnosis_text}
 
-Evalúa en JSON con estos campos:
-- accuracy_score (1-10)
-- clarity_score (1-10)
-- usefulness_score (1-10)
-- overall_score (1-10)
-- comments (breve comentario sobre la evaluación)
+Evalúa los siguientes criterios del 1 al 10:
+- Relevancia: ¿el diagnóstico realmente aborda los errores más importantes en los logs?
+- Precisión técnica: ¿las explicaciones coinciden con la evidencia de los logs?
+- Utilidad: ¿las sugerencias de solución serían útiles para un desarrollador?
+- Claridad: ¿la respuesta es comprensible y estructurada correctamente?
+
+Además, incluye una **explicación general** (campo "explanation") que describa
+qué tan efectivo fue el diagnóstico, qué partes fueron buenas o deficientes,
+y cómo podría mejorarse en la siguiente iteración.
+
+Devuelve **únicamente un JSON** con la siguiente estructura:
+
+{{
+  "scores": {{
+    "relevance": <1-10>,
+    "precision": <1-10>,
+    "utility": <1-10>,
+    "clarity": <1-10>
+  }},
+  "overall_score": <promedio numérico>,
+  "explanation": "Texto explicativo general sobre la evaluación"
+}}
 """
+
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0
     )
 
-    response_text = response.choices[0].message.content
-    print("Diagnosis Response Text:", response_text)
-    return safe_json_load(response_text)
+    text = response.choices[0].message.content
+    print("Judge Response Text:", text)
+    return safe_json_load(text)
 
-# ------------------------
-# RAG Context Retrieval (Opcional)
-# ------------------------
-def retrieve_context(query, top_k=3):
-    if not os.path.exists(RAG_INDEX_FILE) or not os.path.exists(RAG_MAP_FILE):
-        return []
 
-    with open(RAG_MAP_FILE, "rb") as f:
-        file_map = pickle.load(f)
-    index = faiss.read_index(RAG_INDEX_FILE)
-
-    emb = client.embeddings.create(input=query, model=EMBED_MODEL).data[0].embedding
-    D, I = index.search(np.array([emb]).astype("float32"), top_k)
-    return [file_map[i] for i in I[0]]
-
-# ------------------------
-# Self-Improvement Loop
-# ------------------------
+# -------------------------------
+# Self-improvement loop
+# -------------------------------
 def self_improve(logs_file=LOGS_FILE, few_shots_file=FEW_SHOTS_FILE):
     with open(logs_file, "r", encoding="utf-8") as f:
-        logs_json = json.load(f)
-
-    logs = logs_json  # cada entry es un dict completo
+        logs = json.load(f)
 
     few_shots = []
     if os.path.exists(few_shots_file):
         with open(few_shots_file, "r", encoding="utf-8") as f:
             few_shots = json.load(f)
 
+    # Diagnóstico global (hasta 3 errores agrupados)
+    diagnosis = diagnose_logs_grouped(logs, few_shots=few_shots)
+    print("Grouped Diagnosis:", diagnosis)
+
     history = []
 
-    for log_entry in logs:
-        context_files = retrieve_context(json.dumps(log_entry))
-        context_text = ""
-        for fpath in context_files:
-            with open(fpath, "r", encoding="utf-8") as f:
-                context_text += f"\n### {fpath}\n" + f.read()
+    # Evalúa cada grupo de error individualmente con el juez
+    if "errors" in diagnosis:
+        for err in diagnosis["errors"]:
+            involved_logs = err.get("involved_logs", [])
+            feedback = judge_response(involved_logs, err)
+            # Guardar la explanation del juez dentro de la diagnosis para auto-mejora
+            err["feedback_explanation"] = feedback.get("explanation", "")
+            history.append({"logs": involved_logs, "diagnosis": err, "feedback": feedback})
 
-        diagnosis = diagnose_bug(log_entry, few_shots=few_shots)
-        print("Diagnosis:", diagnosis)
-        if context_text:
-            diagnosis["context_files"] = context_files
-
-        feedback = judge_response(log_entry, diagnosis)
-        history.append({"log": log_entry, "diagnosis": diagnosis, "feedback": feedback})
-
-    # Guardar los mejores ejemplos como few-shots
+    # Guarda los mejores diagnósticos como few-shots
     best = [h for h in history if "overall_score" in h["feedback"] and h["feedback"]["overall_score"] >= 8.5]
-    new_few_shots = [{"log": b["log"], "diagnosis": b["diagnosis"]} for b in best]
+    new_few_shots = []
+    for b in best:
+        logs_for_shot = b.get("logs") or b.get("log") or []
+        new_few_shots.append({
+            "logs": logs_for_shot,
+            "diagnosis": b.get("diagnosis", {}),
+            "feedback_explanation": b["diagnosis"].get("feedback_explanation", "")
+        })
     few_shots.extend(new_few_shots)
 
     with open(few_shots_file, "w", encoding="utf-8") as f:
@@ -176,3 +198,13 @@ def self_improve(logs_file=LOGS_FILE, few_shots_file=FEW_SHOTS_FILE):
 
     print(f"Guardados {len(new_few_shots)} nuevos ejemplos de alta calidad.")
     return history
+
+
+# -------------------------------
+# Ejecución
+# -------------------------------
+if __name__ == "__main__":
+    print("Ejecutando agente de debugging auto-mejorable...\n")
+    history = self_improve()
+    print("\nResultados del ciclo de mejora:")
+    print(json.dumps(history, indent=2, ensure_ascii=False))
