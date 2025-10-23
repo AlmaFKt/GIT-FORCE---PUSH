@@ -1,4 +1,7 @@
 import os, json
+from dotenv import load_dotenv
+# Cargar variables desde .env (si existe). Esto permite mantener la clave fuera del código.
+load_dotenv()
 from openai import OpenAI
 import pickle
 import numpy as np

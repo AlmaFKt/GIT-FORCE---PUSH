@@ -1,6 +1,9 @@
 import json
 import websocket
 from self_improving_debug_agent import self_improve
+from dotenv import load_dotenv
+# Cargar variables desde .env (si existe). Esto permite mantener la clave fuera del código.
+load_dotenv()
 
 MCP_SERVER_URL = "ws://localhost:8765"
 
