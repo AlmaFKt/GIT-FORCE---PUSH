@@ -1,0 +1,38 @@
+# --- Archivos de entorno y configuración ---
+.env
+*.env
+.env.
+
+# --- Claves o configuraciones privadas ---
+*.key
+*.pem
+*.p12
+*.cer
+*.crt
+
+# --- Archivos de compilación y bytecode ---
+_pycache_/
+*.py[cod]
+*$py.class
+
+# --- Entornos virtuales ---
+.venv/
+venv/
+env/
+
+# --- Archivos de logs ---
+*.log
+
+# --- Archivos de sistema ---
+.DS_Store
+Thumbs.db
+
+# --- Carpetas de configuración de IDEs ---
+.vscode/
+.idea/
+*.swp
+
+# --- Archivos temporales ---
+*.tmp
+*.bak
+*.old
