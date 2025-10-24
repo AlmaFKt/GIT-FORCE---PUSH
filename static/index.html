@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Debug Agent Dashboard</title>
+<style>
+body { font-family: sans-serif; margin: 20px; }
+pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<h1>Debug Agent Self-Improvement</h1>
+
+<section style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+    <div>
+        <input type="file" id="logFile" accept=".json"/>
+        <button id="startBtn">Ejecutar agente</button>
+        <button id="clearBtn">Limpiar historial</button>
+    </div>
+    <div id="status" style="color:#444">Estado: <strong id="statusText">idle</strong></div>
+</section>
+
+<section style="display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start;">
+    <div>
+        <h2>Progreso en tiempo real</h2>
+        <div id="progress"></div>
+    </div>
+
+    <aside>
+        <h3>Resumen</h3>
+        <div id="summary">
+            <p>Diagnósticos recibidos: <strong id="count">0</strong></p>
+            <p>Última actualización: <span id="lastUpdate">-</span></p>
+            <div id="latest" style="margin-top:8px"></div>
+        </div>
+    </aside>
+</section>
+
+<script>
+const startBtn = document.getElementById('startBtn');
+const clearBtn = document.getElementById('clearBtn');
+const fileInput = document.getElementById('logFile');
+const progressDiv = document.getElementById('progress');
+const statusText = document.getElementById('statusText');
+const countEl = document.getElementById('count');
+const lastUpdate = document.getElementById('lastUpdate');
+const latest = document.getElementById('latest');
+
+let diagnosticsCount = 0;
+
+function renderDiagnosisCard(d) {
+    const card = document.createElement('div');
+    card.style.border = '1px solid #ddd';
+    card.style.padding = '10px';
+    card.style.marginBottom = '10px';
+    card.style.borderRadius = '6px';
+    card.style.background = '#fff';
+
+    const title = document.createElement('h4');
+    title.textContent = d.diagnosis.root_cause || 'Sin causa raíz';
+    card.appendChild(title);
+
+    const meta = document.createElement('div');
+    meta.style.fontSize = '13px';
+    meta.style.color = '#666';
+    meta.innerHTML = `<strong>Suggested fix:</strong> ${d.diagnosis.suggested_fix || '-'} `;
+    card.appendChild(meta);
+
+    const expl = document.createElement('pre');
+    expl.textContent = d.diagnosis.explanation || '';
+    card.appendChild(expl);
+
+    // Feedback / scores
+    if (d.feedback && d.feedback.scores) {
+        const scores = d.feedback.scores;
+        const scoreBox = document.createElement('div');
+        scoreBox.style.display = 'flex';
+        scoreBox.style.gap = '8px';
+        scoreBox.style.marginTop = '8px';
+        for (const k of Object.keys(scores)) {
+            const s = document.createElement('div');
+            s.style.fontSize = '12px';
+            s.style.padding = '4px 6px';
+            s.style.background = '#f7f7f7';
+            s.style.borderRadius = '4px';
+            s.textContent = `${k}: ${scores[k]}`;
+            scoreBox.appendChild(s);
+        }
+        card.appendChild(scoreBox);
+    }
+
+    // Overall score if present
+    if (d.feedback && d.feedback.overall_score !== undefined) {
+        const overall = document.createElement('p');
+        overall.innerHTML = `<strong>Overall:</strong> ${d.feedback.overall_score}`;
+        overall.style.marginTop = '8px';
+        card.appendChild(overall);
+    }
+
+    // Involved logs (collapsible)
+    const logsBtn = document.createElement('button');
+    logsBtn.textContent = 'Mostrar logs involucrados';
+    logsBtn.style.marginTop = '8px';
+    logsBtn.onclick = () => {
+        if (logsPre.style.display === 'none') { logsPre.style.display = 'block'; logsBtn.textContent = 'Ocultar logs'; }
+        else { logsPre.style.display = 'none'; logsBtn.textContent = 'Mostrar logs involucrados'; }
+    };
+    card.appendChild(logsBtn);
+
+    const logsPre = document.createElement('pre');
+    logsPre.style.display = 'none';
+    logsPre.textContent = JSON.stringify(d.logs || d.diagnosis.involved_logs || [], null, 2);
+    card.appendChild(logsPre);
+
+    return card;
+}
+
+startBtn.onclick = () => {
+    const file = fileInput.files[0];
+    if (!file) { alert('Selecciona un archivo JSON de logs'); return; }
+
+    diagnosticsCount = 0;
+    progressDiv.innerHTML = '';
+    countEl.textContent = '0';
+    latest.innerHTML = '';
+
+    statusText.textContent = 'conectando...';
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/progress`);
+
+    ws.onerror = (e) => { console.error('WS error', e); statusText.textContent = 'error'; };
+    ws.onclose = () => { statusText.textContent = 'idle'; const done = document.createElement('p'); done.textContent = '✅ Ciclo completado'; progressDiv.appendChild(done); };
+
+    ws.onopen = () => {
+        statusText.textContent = 'enviando logs';
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                ws.send(reader.result);
+                statusText.textContent = 'ejecutando';
+            } catch (err) {
+                console.error('Error sending logs via WS', err);
+                statusText.textContent = 'error al enviar';
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    ws.onmessage = (evt) => {
+        try {
+            const payload = JSON.parse(evt.data);
+            // payload expected: { diagnosis: {...}, feedback: {...}, logs: [...] }
+            const diag = payload.diagnosis || payload;
+            const feedback = payload.feedback || {};
+            const logs = payload.logs || diag.involved_logs || [];
+
+            const wrapper = { diagnosis: diag, feedback: feedback, logs: logs };
+
+            const card = renderDiagnosisCard(wrapper);
+            progressDiv.appendChild(card);
+
+            diagnosticsCount += 1;
+            countEl.textContent = diagnosticsCount;
+            lastUpdate.textContent = new Date().toLocaleString();
+
+            // Update latest
+            latest.innerHTML = `<strong>${diag.root_cause || 'Sin causa'}</strong><br/><small>${diag.suggested_fix || ''}</small>`;
+
+        } catch (err) {
+            console.error('Error parsing WS message', err, evt.data);
+            const errBlock = document.createElement('pre');
+            errBlock.textContent = evt.data;
+            progressDiv.appendChild(errBlock);
+        }
+    };
+};
+
+clearBtn.onclick = () => { progressDiv.innerHTML = ''; diagnosticsCount = 0; countEl.textContent = '0'; latest.innerHTML = ''; };
+</script>
+
+</body>
+</html>
